@@ -5,49 +5,57 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PIS/COFINS Monofásico por NCM — Leitor de XML (NFCe/NFe)</title>
 <style>
-  :root { --bg:#f4f6f8; --card:#fff; --ink:#222; --muted:#666; --hdr:#404040; --green:#0a7d2c; --red:#b00020; --gold:#8a6d00; --goldbg:#f5e9bd; }
+  :root { --bg:#EDF1F5; --card:#fff; --ink:#1E2A38; --muted:#5D6E80; --navy:#0F2A44; --navy-2:#1A3A5C; --gold:#C9A227; --gold-2:#A8861B; --goldbg:#FAF4E0; --green:#0E7A3D; --greenbg:#E7F4EC; --red:#B3261E; --redbg:#FCECEA; --line:#DCE4EC; }
   * { box-sizing:border-box; }
   body { font-family:Arial, Helvetica, sans-serif; background:var(--bg); color:var(--ink); margin:0; padding:0; }
-  header { background:var(--hdr); color:#fff; padding:16px 24px; }
-  header h1 { margin:0; font-size:20px; }
-  header p { margin:4px 0 0; font-size:13px; color:#ddd; }
+  header { background:linear-gradient(135deg, var(--navy) 0%, var(--navy-2) 100%); color:#fff; padding:18px 24px; border-bottom:4px solid var(--gold); }
+  .brandrow { display:flex; gap:14px; align-items:center; max-width:1400px; margin:0 auto; }
+  .brand-mark { width:46px; height:46px; min-width:46px; border-radius:10px; background:var(--gold); color:var(--navy); font-weight:bold; font-size:18px; display:flex; align-items:center; justify-content:center; }
+  header h1 { margin:0; font-size:20px; letter-spacing:.2px; }
+  header p { margin:4px 0 0; font-size:13px; color:#C9D4E0; }
+  header .eyebrow { margin:0 0 4px; font-size:11px; font-weight:bold; letter-spacing:2px; color:var(--gold); text-transform:uppercase; }
   main { max-width:1400px; margin:0 auto; padding:16px 24px 40px; }
-  .card { background:var(--card); border:1px solid #ddd; border-radius:8px; padding:16px; margin-bottom:16px; }
-  .card h2 { margin:0 0 10px; font-size:16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px; box-shadow:0 1px 3px rgba(15,42,68,.08); }
+  .card h2 { margin:0 0 10px; font-size:16px; color:var(--navy); border-left:4px solid var(--gold); padding-left:10px; }
   .btnrow { display:flex; flex-wrap:wrap; gap:10px; }
-  button, .filebtn { background:#1a73e8; color:#fff; border:none; border-radius:6px; padding:10px 16px; font-size:14px; cursor:pointer; }
-  button:hover, .filebtn:hover { background:#1559b3; }
-  button.secondary { background:#5f6368; }
-  button.secondary:hover { background:#494c50; }
+  button, .filebtn { background:var(--navy); color:#fff; border:none; border-radius:6px; padding:10px 16px; font-size:14px; cursor:pointer; }
+  button:hover, .filebtn:hover { background:var(--navy-2); }
+  button.secondary { background:#5D6E80; }
+  button.secondary:hover { background:#485664; }
   button.success { background:var(--green); }
+  button.success:hover { background:#0B6534; }
   button:disabled { background:#aaa; cursor:not-allowed; }
-  #drop { border:2px dashed #aaa; border-radius:8px; padding:22px; text-align:center; color:var(--muted); margin-top:12px; font-size:14px; }
-  #drop.over { border-color:#1a73e8; background:#e8f0fe; color:#1a73e8; }
+  button:focus-visible { outline:2px solid var(--gold); outline-offset:2px; }
+  #drop { border:2px dashed #9FB2C5; border-radius:8px; padding:22px; text-align:center; color:var(--muted); margin-top:12px; font-size:14px; background:#F7FAFC; }
+  #drop.over { border-color:var(--navy); background:#EAF1F8; color:var(--navy); }
   .hint { font-size:12px; color:var(--muted); margin-top:8px; }
   .totals { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; }
-  .total-box { border:1px solid #ddd; border-radius:8px; padding:10px 12px; background:#fafafa; }
+  .total-box { border:1px solid var(--line); border-radius:8px; padding:10px 12px; background:#F7FAFC; }
   .total-box .lbl { font-size:12px; color:var(--muted); }
-  .total-box .val { font-size:20px; font-weight:bold; }
+  .total-box .val { font-size:20px; font-weight:bold; color:var(--navy); }
+  .total-box.sim { border-left:4px solid var(--green); }
   .total-box.sim .val { color:var(--green); }
+  .total-box.nao { border-left:4px solid var(--red); }
   .total-box.nao .val { color:var(--red); }
-  .total-box.grand { background:var(--goldbg); border-color:var(--gold); }
-  .total-box.grand .val { color:var(--gold); }
+  .total-box.grand { background:var(--goldbg); border-color:var(--gold); border-left:4px solid var(--gold-2); }
+  .total-box.grand .val { color:var(--navy); }
   .total-box input { width:100%; font-size:18px; padding:4px 6px; margin-top:4px; }
   .filters { display:flex; flex-wrap:wrap; gap:10px; align-items:end; }
   .filters label { font-size:12px; color:var(--muted); display:block; }
   .filters input[type=text], .filters select { padding:8px; font-size:14px; border:1px solid #ccc; border-radius:6px; min-width:160px; }
   #status { font-size:13px; color:var(--muted); margin-top:8px; }
   #errbox { font-size:13px; color:var(--red); margin-top:8px; white-space:pre-wrap; }
-  .tablewrap { overflow:auto; max-height:60vh; border:1px solid #ddd; border-radius:8px; }
+  .tablewrap { overflow:auto; max-height:60vh; border:1px solid var(--line); border-radius:8px; }
   table { border-collapse:collapse; width:100%; font-size:12px; }
-  thead th { background:var(--hdr); color:#fff; padding:8px 6px; position:sticky; top:0; white-space:nowrap; }
-  tbody td { border-bottom:1px solid #eee; padding:6px; }
+  thead th { background:var(--navy); color:#fff; padding:8px 6px; position:sticky; top:0; white-space:nowrap; }
+  tbody tr:nth-child(even) { background:#F5F8FB; }
+  tbody td { border-bottom:1px solid #E6EDF3; padding:6px; }
   tbody td.num { text-align:right; white-space:nowrap; }
   tbody td.center { text-align:center; }
   .badge { display:inline-block; padding:2px 10px; border-radius:12px; font-weight:bold; font-size:11px; }
-  .badge.sim { background:#e6f4ea; color:var(--green); border:1px solid var(--green); }
-  .badge.nao { background:#fce8e6; color:var(--red); border:1px solid var(--red); }
-  tfoot td { font-weight:bold; background:#f1f1f1; padding:8px 6px; }
+  .badge.sim { background:var(--greenbg); color:var(--green); border:1px solid var(--green); }
+  .badge.nao { background:var(--redbg); color:var(--red); border:1px solid var(--red); }
+  tfoot td { font-weight:bold; background:#E7EEF5; color:var(--navy); padding:8px 6px; }
   tfoot td.num { text-align:right; white-space:nowrap; }
   @media print {
     header, #uploadCard, #filterCard, #exportCard { display:none; }
@@ -58,8 +66,14 @@
 </head>
 <body>
 <header>
-  <h1>PIS/COFINS Monofásico por NCM — Leitor de XML (NFCe / NFe)</h1>
-  <p>Importe os XMLs (arquivos soltos, pasta ou .ZIP), confira item a item se o NCM é monofásico e veja os totais no padrão da planilha. Base: Tabela 4.3.10 v1.25 da EFD-Contribuições (atualizada em 30.03.2026).</p>
+  <div class="brandrow">
+    <span class="brand-mark" aria-hidden="true">PC</span>
+    <div>
+      <p class="eyebrow">Contábil · Fiscal · Tributário</p>
+      <h1>PIS/COFINS Monofásico por NCM — Leitor de XML (NFCe / NFe)</h1>
+      <p>Importe os XMLs (arquivos soltos, pasta ou .ZIP), confira item a item se o NCM é monofásico e veja os totais no padrão da planilha. Base: Tabela 4.3.10 v1.25 da EFD-Contribuições (atualizada em 30.03.2026).</p>
+    </div>
+  </div>
 </header>
 <main>
   <div class="card" id="uploadCard">
