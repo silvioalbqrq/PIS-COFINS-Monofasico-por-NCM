@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PIS/COFINS Monofásico por NCM — Leitor de XML (NFCe/NFe)</title>
+<meta name="description" content="Leitor de XML de NFCe e NFe que indica se o NCM é monofásico no PIS/COFINS (Tabela 4.3.10), totaliza SIM/NÃO + serviços e exporta Excel. 100% no navegador." />
+<meta name="theme-color" content="#0F2A44" />
+<meta property="og:title" content="PIS/COFINS Monofásico por NCM — Leitor de XML" />
+<meta property="og:description" content="Importe XMLs de NFCe/NFe e saiba item a item se o PIS/COFINS é monofásico, com totais e Excel." />
+<meta property="og:type" content="website" />
 <style>
   :root { --bg:#EDF1F5; --card:#fff; --ink:#1E2A38; --muted:#5D6E80; --navy:#0F2A44; --navy-2:#1A3A5C; --gold:#C9A227; --gold-2:#A8861B; --goldbg:#FAF4E0; --green:#0E7A3D; --greenbg:#E7F4EC; --red:#B3261E; --redbg:#FCECEA; --line:#DCE4EC; }
   * { box-sizing:border-box; }
@@ -42,7 +47,7 @@
   .total-box input { width:100%; font-size:18px; padding:4px 6px; margin-top:4px; }
   .filters { display:flex; flex-wrap:wrap; gap:10px; align-items:end; }
   .filters label { font-size:12px; color:var(--muted); display:block; }
-  .filters input[type=text], .filters select { padding:8px; font-size:14px; border:1px solid #ccc; border-radius:6px; min-width:160px; }
+  .filters input[type=text], .filters input[type=month], .filters select { padding:8px; font-size:14px; border:1px solid #ccc; border-radius:6px; min-width:160px; }
   #status { font-size:13px; color:var(--muted); margin-top:8px; }
   #errbox { font-size:13px; color:var(--red); margin-top:8px; white-space:pre-wrap; }
   .tablewrap { overflow:auto; max-height:60vh; border:1px solid var(--line); border-radius:8px; }
@@ -111,7 +116,7 @@
     <div class="filters">
       <div><label for="fSearch">Buscar (emissor, descrição, NCM, número)</label><input type="text" id="fSearch" placeholder="ex.: VALVOLINE ou 84212300"></div>
       <div><label for="fMod">Modelo</label><select id="fMod"><option value="">Todos (55 + 65)</option><option value="55">55 — NFe</option><option value="65">65 — NFCe</option></select></div>
-      <div><label for="fMono">Monofásico</label><select id="fMono"><option value="">Todos</option><option value="SIM">SIM</option><option value="NAO">NÃO</option></select></div>
+      <div><label for="fMono">Monofásico</label><select id="fMono"><option value="">Todos</option><option value="SIM">SIM</option><option value="NAO">NÃO</option><option value="STAREX">SIM * — conferir Ex</option></select></div>
       <div><label>&nbsp;</label><button type="button" class="secondary" id="btnNoFilter">Mostrar tudo</button></div>
     </div>
     <div id="status2" class="hint"></div>
@@ -132,7 +137,7 @@
       <span id="pgInfo" class="hint" style="margin-top:0"></span>
       <button type="button" class="secondary" id="pgNext">Próxima →</button>
     </div>
-    <div class="hint">* <b>SIM *</b> = NCM com exceção (Ex) na Tabela 4.3.10 — passe o mouse sobre o selo para ver a observação. A classificação por NCM não distingue o Ex; confira o produto na nota. Ver seção 5.</div>
+    <div class="hint">* <b>SIM *</b> = NCM com exceção (Ex) na Tabela 4.3.10 — passe o mouse sobre o selo para ver a observação. A classificação por NCM não distingue o Ex; confira o produto na nota. Use o filtro “SIM * — conferir Ex” para listar só esses. Ver seção 7.</div>
   </div>
 
   <div class="card" id="exportCard">
@@ -146,7 +151,35 @@
   </div>
 
   <div class="card">
-    <h2>5. Base legal e observações (Tabela 4.3.10 v1.25 — 30.03.2026)</h2>
+    <h2>5. Como funciona (leia antes de usar)</h2>
+    <div class="hint" style="font-size:13px;color:#222;">
+    <b>Monofásico:</b> PIS/COFINS recolhidos uma única vez pela indústria ou importador, com alíquota concentrada. Quem revende depois aplica <b>alíquota zero (CST 04)</b> — não tributa de novo.<br>
+    <b>Por pauta:</b> em vez da alíquota sobre o preço, o imposto usa uma base presumida (pauta) por unidade. A tabela oficial mistura os dois regimes.<br>
+    <b>CST 02 × CST 04:</b> 02 = fabricante/importador tributando no regime monofásico; 04 = revenda a alíquota zero. O NCM é o mesmo — só a operação (e o CST da nota) diz qual é o seu caso.<br>
+    <b>O que este site faz:</b> lê os XMLs, classifica cada item em SIM/NÃO pelo NCM (Tabela 4.3.10 v1.25) e soma os valores. <b>O que ele não faz:</b> não distingue Ex, CST, pauta nem vigência — use o selo SIM *, o filtro de conferência e a seção 7 antes de fechar a apuração.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>6. Histórico de apurações (neste navegador)</h2>
+    <div class="filters">
+      <div><label for="hMes">Mês de referência</label><input type="month" id="hMes"></div>
+      <div><label>&nbsp;</label><button type="button" class="success" id="btnSaveHist">Salvar apuração atual</button></div>
+      <div><label>&nbsp;</label><button type="button" class="secondary" id="btnClearHist">Apagar histórico</button></div>
+    </div>
+    <div id="histInfo" class="hint"></div>
+    <div style="height:10px"></div>
+    <div class="tablewrap" style="max-height:30vh;">
+      <table>
+        <thead><tr><th>Mês</th><th>Arquivos</th><th>Itens</th><th>SIM</th><th>NÃO</th><th>Geral</th><th>Serv. SEM</th><th>Serv. COM</th><th>TOTAL</th><th>Salvo em</th><th></th></tr></thead>
+        <tbody id="histBody"><tr><td colspan="11" class="center">Nenhuma apuração salva.</td></tr></tbody>
+      </table>
+    </div>
+    <div class="hint">Salva os totais filtrados do momento (itens + serviços digitados). Fica guardado neste navegador; para comparar meses, salve cada mês e leia as linhas lado a lado.</div>
+  </div>
+
+  <div class="card">
+    <h2>7. Base legal e observações (Tabela 4.3.10 v1.25 — 30.03.2026)</h2>
     <div class="hint" style="font-size:13px;color:#222;">
     PRODUTOS SUJEITOS A ALÍQUOTAS DIFERENCIADAS: INCIDÊNCIA MONOFÁSICA E POR PAUTA (CST 02 e 04).<br><br>
     <b>Grupos e legislação de referência:</b><br>
@@ -164,8 +197,8 @@
 </main>
 
 <script src="ncm.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
+<script src="vendor/jszip.min.js"></script>
+<script src="vendor/xlsx.full.min.js"></script>
 <script>
 'use strict';
 var items = [];
@@ -211,6 +244,19 @@ function decodeXmlBuffer(buf){
 function debounce(fn, ms){ var t=null; return function(){ var self=this, args=arguments; clearTimeout(t); t=setTimeout(function(){ fn.apply(self, args); }, ms); }; }
 function saveSrv(){ try{ localStorage.setItem('monofasico:srv', JSON.stringify({sem:$('srvSem').value, com:$('srvCom').value})); }catch(e){} }
 function loadSrv(){ try{ var sv = JSON.parse(localStorage.getItem('monofasico:srv')||'{}'); if(sv && sv.sem!=null) $('srvSem').value = sv.sem; if(sv && sv.com!=null) $('srvCom').value = sv.com; }catch(e){} }
+/* digito verificador da chave de acesso (modulo 11 SEFAZ) */
+function chaveValida(ch){
+  if(!/^\d{44}$/.test(ch||'')) return false;
+  var soma = 0, peso = 2, i, d;
+  for(i = 42; i >= 0; i--){ d = parseInt(ch.charAt(i), 10); if(isNaN(d)) return false; soma += d * peso; peso = (peso === 9) ? 2 : peso + 1; }
+  var dv = 11 - (soma % 11);
+  if(dv >= 10) dv = 0;
+  return dv === parseInt(ch.charAt(43), 10);
+}
+var r2 = function(v){ return Math.round((Number(v)||0)*100)/100; };
+function loadHist(){ try{ var h = JSON.parse(localStorage.getItem('monofasico:historico')||'[]'); return Array.isArray(h)?h:[]; }catch(e){ return []; } }
+function saveHist(h){ try{ localStorage.setItem('monofasico:historico', JSON.stringify(h)); }catch(e){} }
+function mesLabel(m){ var p = String(m||'').split('-'); return (p.length===2) ? p[1]+'/'+p[0] : m; }
 
 function els(root, name){
   try {
@@ -249,6 +295,8 @@ function parseNFeXml(text, fname){
   }
   var nfes = els(doc, 'NFe');
   if(!nfes.length) return []; /* ex.: -can.xml (procEvento) */
+  var prot = els(doc, 'infProt')[0];
+  var cstat = childText(prot, 'cStat'), xmotivo = childText(prot, 'xMotivo');
   var out = [];
   nfes.forEach(function(nfe){
     var inf = els(nfe,'infNFe')[0] || nfe;
@@ -276,7 +324,7 @@ function parseNFeXml(text, fname){
       var obs = (mono==='SIM' && typeof NCM_OBS!=='undefined' && NCM_OBS[ncm]) ? NCM_OBS[ncm] : '';
       out.push({ emissor:xNome, data:fmtDate(dhEmi), modelo:mod, numero:nNF,
         descricao:xProd, ncm:ncm, cfop:cfop, qtd:q, vunit:vu, desc:desc,
-        liquido:Math.round(liquido*100)/100, mono:mono, obs:obs, chave:chave, nItem:nItem, arquivo:fname });
+        liquido:Math.round(liquido*100)/100, mono:mono, obs:obs, chave:chave, chaveOk:(chave?chaveValida(chave):null), nItem:nItem, cstat:cstat, xmotivo:xmotivo, arquivo:fname });
     });
   });
   return out;
@@ -292,7 +340,7 @@ function handleFileList(files){
   var jobs = [];
   xmls.forEach(function(f){ jobs.push(f.arrayBuffer().then(function(b){ return {name:f.name, text:decodeXmlBuffer(b)}; })); });
   if(zips.length){
-    if(typeof JSZip==='undefined'){ errorLog.push('JSZip não carregou (sem internet?). O .zip não pôde ser aberto.'); }
+    if(typeof JSZip==='undefined'){ errorLog.push('Arquivo vendor/jszip.min.js não encontrado ao lado do index.html. Baixe o ZIP de novo do repositório.'); }
     else {
       zips.forEach(function(z){
         jobs.push(JSZip.loadAsync(z).then(function(zip){
@@ -316,6 +364,13 @@ function handleFileList(files){
           if(seenKeys[k]){ dupCount++; return; }
           seenKeys[k] = 1; items.push(it);
         });
+        var chInv = {}, csNok = null;
+        its.forEach(function(it){
+          if(it.chave && it.chaveOk === false) chInv[it.chave] = 1;
+          if(it.cstat && it.cstat !== '100' && csNok === null) csNok = it.cstat + (it.xmotivo ? ' - ' + it.xmotivo : '');
+        });
+        Object.keys(chInv).forEach(function(ch){ errorLog.push(r.name + ': chave de acesso com dígito verificador inválido (' + ch + ').'); });
+        if(csNok !== null) errorLog.push(r.name + ': documento não autorizado (cStat ' + csNok + '). Valores mantidos na tabela, confira antes de usar.');
       } catch(e){ ignoredCount++; errorLog.push(r.name + ': ' + e.message); }
     });
     page = 0;
@@ -328,7 +383,8 @@ function filtered(){
   var m = $('fMod').value, s = $('fMono').value;
   return items.filter(function(it){
     if(m && it.modelo!==m) return false;
-    if(s && it.mono!==s) return false;
+    if(s === 'STAREX'){ if(!(it.mono==='SIM' && it.obs)) return false; }
+    else if(s && it.mono!==s) return false;
     if(q){
       var hay = (it.emissor+' '+it.descricao+' '+it.ncm+' '+it.numero+' '+(it.arquivo||'')).toLowerCase();
       if(hay.indexOf(q)<0) return false;
@@ -364,7 +420,16 @@ function render(){
       tds.forEach(function(v,i){
         var td = document.createElement('td');
         if(i===11){ var b=document.createElement('span'); b.className='badge '+(it.mono==='SIM'?'sim':'nao'); b.textContent=it.mono+(it.obs?' *':''); if(it.obs) b.title=it.obs; td.className='center'; td.appendChild(b); }
-        else { td.textContent=v; if(i>=7) td.className='num'; }
+        else {
+          td.textContent=v;
+          if(i>=7) td.className='num';
+          if(i===3){
+            var warn = [];
+            if(it.chave && it.chaveOk===false) warn.push('Chave de acesso com dígito verificador inválido');
+            if(it.cstat && it.cstat!=='100') warn.push('Documento não autorizado (cStat ' + it.cstat + (it.xmotivo ? ' - ' + it.xmotivo : '') + ')');
+            if(warn.length){ td.textContent=v+' ⚠'; td.title=warn.join(' | '); td.style.color='var(--red)'; td.style.fontWeight='bold'; }
+          }
+        }
         tr.appendChild(td);
       });
       frag.appendChild(tr);
@@ -385,6 +450,13 @@ function render(){
       '<tr><td colspan="10" class="num">Total Geral (SIM + NÃO):</td><td class="num">'+brl(t.geral)+'</td><td></td></tr>';
   } else ft.style.display='none';
   $('status').textContent = 'Arquivos XML lidos: ' + fileCount + ' | Itens: ' + items.length + ' | Duplicados ignorados: ' + dupCount + ' | Ignorados (cancelamentos/inválidos): ' + ignoredCount;
+  var chInv = 0, csNok = 0, chSet = {}, csSet = {};
+  items.forEach(function(it){
+    if(it.chave && it.chaveOk === false && !chSet[it.chave]){ chSet[it.chave] = 1; chInv++; }
+    if(it.cstat && it.cstat !== '100' && !csSet[it.chave || it.arquivo]){ csSet[it.chave || it.arquivo] = 1; csNok++; }
+  });
+  if(chInv) $('status').textContent += ' | Documentos com chave inválida: ' + chInv;
+  if(csNok) $('status').textContent += ' | Documentos não autorizados (cStat ≠ 100): ' + csNok;
   $('status2').textContent = 'Exibindo ' + rows.length + ' de ' + items.length + ' itens filtrados. Totais e exportações consideram os ' + rows.length + ' itens filtrados.';
   var pg = $('pgInfo');
   if(pg){
@@ -474,6 +546,43 @@ $('fMono').addEventListener('input', function(){ page=0; render(); });
 });
 $('pgPrev').onclick = function(){ if(page>0){ page--; render(); } };
 $('pgNext').onclick = function(){ page++; render(); };
+function renderHist(){
+  var h = loadHist();
+  var tb = $('histBody'); tb.innerHTML = '';
+  if(!h.length){
+    tb.innerHTML = '<tr><td colspan="11" class="center">Nenhuma apuração salva.</td></tr>';
+  } else {
+    h.forEach(function(x, i){
+      var tr = document.createElement('tr');
+      [[mesLabel(x.mes), 0], [x.arquivos, 1], [x.itens, 1], [brl(x.sim), 1], [brl(x.nao), 1], [brl(x.geral), 1], [brl(x.sem), 1], [brl(x.com), 1], [brl(x.total), 1], [fmtDate(x.salvosEm), 0], [null, 2]].forEach(function(p){
+        var td = document.createElement('td');
+        if(p[1] === 2){ var b = document.createElement('button'); b.type = 'button'; b.className = 'secondary'; b.textContent = 'Excluir'; b.setAttribute('data-del', i); td.appendChild(b); }
+        else { td.textContent = p[0]; if(p[1] === 1) td.className = 'num'; }
+        tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+  }
+  $('histInfo').textContent = h.length ? h.length + ' apuração(ões) guardada(s). Excluir remove só o registro, não os itens carregados.' : '';
+}
+$('btnSaveHist').onclick = function(){
+  var mes = $('hMes').value;
+  if(!mes){ alert('Informe o mês de referência.'); return; }
+  if(!items.length){ alert('Nada para salvar: importe os XMLs primeiro.'); return; }
+  var rows = filtered();
+  var t = totalsOf(rows);
+  var sem = parseMoney($('srvSem').value), com = parseMoney($('srvCom').value);
+  var h = loadHist().filter(function(x){ return x.mes !== mes; });
+  h.push({mes:mes, salvosEm:new Date().toISOString(), arquivos:fileCount, itens:rows.length,
+    sim:r2(t.sim), nao:r2(t.nao), geral:r2(t.geral), sem:sem, com:com, total:r2(t.geral + sem + com)});
+  h.sort(function(a, b){ return a.mes < b.mes ? -1 : 1; });
+  saveHist(h); renderHist();
+};
+$('btnClearHist').onclick = function(){ if(confirm('Apagar todo o histórico guardado neste navegador?')){ saveHist([]); renderHist(); } };
+$('histBody').addEventListener('click', function(e){
+  var b = e.target && e.target.getAttribute ? e.target.getAttribute('data-del') : null;
+  if(b !== null && b !== ''){ var h = loadHist(); h.splice(parseInt(b, 10), 1); saveHist(h); renderHist(); }
+});
 
 $('btnFiles').onclick = function(){ $('inFiles').click(); };
 $('btnFolder').onclick = function(){ $('inFolder').click(); };
@@ -487,6 +596,8 @@ var drop = $('drop');
 ['dragleave','drop'].forEach(function(ev){ drop.addEventListener(ev, function(e){ e.preventDefault(); drop.classList.remove('over'); }); });
 drop.addEventListener('drop', function(e){ if(e.dataTransfer && e.dataTransfer.files) handleFileList(e.dataTransfer.files); });
 loadSrv();
+(function(){ var d = new Date(); $('hMes').value = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); })();
+renderHist();
 render();
 </script>
 </body>
