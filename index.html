@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PIS/COFINS Monofásico por NCM — Leitor de XML (NFCe/NFe)</title>
+<style>
+  :root { --bg:#f4f6f8; --card:#fff; --ink:#222; --muted:#666; --hdr:#404040; --green:#0a7d2c; --red:#b00020; --gold:#8a6d00; --goldbg:#f5e9bd; }
+  * { box-sizing:border-box; }
+  body { font-family:Arial, Helvetica, sans-serif; background:var(--bg); color:var(--ink); margin:0; padding:0; }
+  header { background:var(--hdr); color:#fff; padding:16px 24px; }
+  header h1 { margin:0; font-size:20px; }
+  header p { margin:4px 0 0; font-size:13px; color:#ddd; }
+  main { max-width:1400px; margin:0 auto; padding:16px 24px 40px; }
+  .card { background:var(--card); border:1px solid #ddd; border-radius:8px; padding:16px; margin-bottom:16px; }
+  .card h2 { margin:0 0 10px; font-size:16px; }
+  .btnrow { display:flex; flex-wrap:wrap; gap:10px; }
+  button, .filebtn { background:#1a73e8; color:#fff; border:none; border-radius:6px; padding:10px 16px; font-size:14px; cursor:pointer; }
+  button:hover, .filebtn:hover { background:#1559b3; }
+  button.secondary { background:#5f6368; }
+  button.secondary:hover { background:#494c50; }
+  button.success { background:var(--green); }
+  button:disabled { background:#aaa; cursor:not-allowed; }
+  #drop { border:2px dashed #aaa; border-radius:8px; padding:22px; text-align:center; color:var(--muted); margin-top:12px; font-size:14px; }
+  #drop.over { border-color:#1a73e8; background:#e8f0fe; color:#1a73e8; }
+  .hint { font-size:12px; color:var(--muted); margin-top:8px; }
+  .totals { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; }
+  .total-box { border:1px solid #ddd; border-radius:8px; padding:10px 12px; background:#fafafa; }
+  .total-box .lbl { font-size:12px; color:var(--muted); }
+  .total-box .val { font-size:20px; font-weight:bold; }
+  .total-box.sim .val { color:var(--green); }
+  .total-box.nao .val { color:var(--red); }
+  .total-box.grand { background:var(--goldbg); border-color:var(--gold); }
+  .total-box.grand .val { color:var(--gold); }
+  .total-box input { width:100%; font-size:18px; padding:4px 6px; margin-top:4px; }
+  .filters { display:flex; flex-wrap:wrap; gap:10px; align-items:end; }
+  .filters label { font-size:12px; color:var(--muted); display:block; }
+  .filters input[type=text], .filters select { padding:8px; font-size:14px; border:1px solid #ccc; border-radius:6px; min-width:160px; }
+  #status { font-size:13px; color:var(--muted); margin-top:8px; }
+  #errbox { font-size:13px; color:var(--red); margin-top:8px; white-space:pre-wrap; }
+  .tablewrap { overflow:auto; max-height:60vh; border:1px solid #ddd; border-radius:8px; }
+  table { border-collapse:collapse; width:100%; font-size:12px; }
+  thead th { background:var(--hdr); color:#fff; padding:8px 6px; position:sticky; top:0; white-space:nowrap; }
+  tbody td { border-bottom:1px solid #eee; padding:6px; }
+  tbody td.num { text-align:right; white-space:nowrap; }
+  tbody td.center { text-align:center; }
+  .badge { display:inline-block; padding:2px 10px; border-radius:12px; font-weight:bold; font-size:11px; }
+  .badge.sim { background:#e6f4ea; color:var(--green); border:1px solid var(--green); }
+  .badge.nao { background:#fce8e6; color:var(--red); border:1px solid var(--red); }
+  tfoot td { font-weight:bold; background:#f1f1f1; padding:8px 6px; }
+  tfoot td.num { text-align:right; white-space:nowrap; }
+  @media print {
+    header, #uploadCard, #filterCard, #exportCard { display:none; }
+    .tablewrap { max-height:none; }
+    main { max-width:none; padding:0; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>PIS/COFINS Monofásico por NCM — Leitor de XML (NFCe / NFe)</h1>
+  <p>Importe os XMLs (arquivos soltos, pasta ou .ZIP), confira item a item se o NCM é monofásico e veja os totais no padrão da planilha.</p>
+</header>
+<main>
+  <div class="card" id="uploadCard">
+    <h2>1. Importar XMLs</h2>
+    <div class="btnrow">
+      <button type="button" id="btnFiles">Selecionar arquivos XML</button>
+      <button type="button" id="btnFolder">Selecionar pasta de XMLs</button>
+      <button type="button" id="btnZip">Selecionar arquivo .ZIP</button>
+      <button type="button" class="secondary" id="btnClear">Limpar dados</button>
+    </div>
+    <input type="file" id="inFiles" accept=".xml,text/xml" multiple style="display:none">
+    <input type="file" id="inFolder" webkitdirectory style="display:none">
+    <input type="file" id="inZip" accept=".zip,application/zip" style="display:none">
+    <div id="drop">Arraste e solte aqui: arquivos .xml ou um .zip contendo XMLs</div>
+    <div class="hint">Aceita NFe (modelo 55) e NFCe (modelo 65), inclusive <code>nfeProc</code>, <code>procNFe</code> e <code>procNFCe</code>. Arquivos de cancelamento (<code>-can.xml</code>) são ignorados automaticamente.<br>
+    Arquivo <b>.rar</b>: o navegador não extrai RAR. Extraia o .rar no Windows (botão direito &gt; Extrair tudo) e selecione a pasta, os XMLs ou compacte novamente em .zip.</div>
+    <div id="status">Nenhum arquivo carregado.</div>
+    <div id="errbox"></div>
+  </div>
+
+  <div class="card">
+    <h2>2. Totais (seguem os filtros aplicados à tabela)</h2>
+    <div class="totals">
+      <div class="total-box sim"><div class="lbl">Total Monofásico (SIM)</div><div class="val" id="tSim">R$ 0,00</div></div>
+      <div class="total-box nao"><div class="lbl">Total Não Monofásico (NÃO)</div><div class="val" id="tNao">R$ 0,00</div></div>
+      <div class="total-box"><div class="lbl">Total Geral (SIM + NÃO)</div><div class="val" id="tGeral">R$ 0,00</div></div>
+      <div class="total-box"><div class="lbl">Serviço SEM Retenção (digite)</div><input type="text" id="srvSem" inputmode="decimal" placeholder="0,00" value="0"></div>
+      <div class="total-box"><div class="lbl">Serviço COM Retenção (digite)</div><input type="text" id="srvCom" inputmode="decimal" placeholder="0,00" value="0"></div>
+      <div class="total-box grand"><div class="lbl">TOTAL (produtos + serviços)</div><div class="val" id="tTotal">R$ 0,00</div></div>
+    </div>
+  </div>
+
+  <div class="card" id="filterCard">
+    <h2>3. Itens</h2>
+    <div class="filters">
+      <div><label for="fSearch">Buscar (emissor, descrição, NCM, número)</label><input type="text" id="fSearch" placeholder="ex.: VALVOLINE ou 84212300"></div>
+      <div><label for="fMod">Modelo</label><select id="fMod"><option value="">Todos (55 + 65)</option><option value="55">55 — NFe</option><option value="65">65 — NFCe</option></select></div>
+      <div><label for="fMono">Monofásico</label><select id="fMono"><option value="">Todos</option><option value="SIM">SIM</option><option value="NAO">NÃO</option></select></div>
+      <div><label>&nbsp;</label><button type="button" class="secondary" id="btnNoFilter">Mostrar tudo</button></div>
+    </div>
+    <div id="status2" class="hint"></div>
+    <div style="height:10px"></div>
+    <div class="tablewrap">
+      <table id="grid">
+        <thead><tr>
+          <th>Nome Emissor</th><th>Data Emissão</th><th>Modelo</th><th>Número</th>
+          <th>Descrição</th><th>NCM</th><th>CFOP</th><th>Quantidade</th>
+          <th>Valor Unitário</th><th>Desconto</th><th>Valor Líquido</th><th>PIS/COFINS Monofásico</th>
+        </tr></thead>
+        <tbody id="tbody"><tr><td colspan="12" class="center">Nenhum item carregado. Importe os XMLs acima.</td></tr></tbody>
+        <tfoot id="tfoot" style="display:none"></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" id="exportCard">
+    <h2>4. Exportar</h2>
+    <div class="btnrow">
+      <button type="button" class="success" id="btnExcel">Exportar Excel (.xlsx)</button>
+      <button type="button" id="btnCsv">Exportar CSV</button>
+      <button type="button" class="secondary" id="btnPrint">Imprimir / Salvar PDF</button>
+    </div>
+    <div class="hint">O Excel sai no mesmo leiaute do anexo: colunas A–L, totais de SIM / NÃO / Geral, Serviço SEM/COM Retenção e TOTAL. O CSV usa ponto e vírgula, pronto para abrir no Excel.</div>
+  </div>
+</main>
+
+<script src="ncm.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+'use strict';
+var items = [];
+var fileCount = 0, ignoredCount = 0;
+var errorLog = [];
+
+var $ = function(id){ return document.getElementById(id); };
+var brl = function(v){ return (Number(v)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); };
+var num = function(s){ if(s==null) return 0; var v = parseFloat(String(s).trim().replace(/\./g,'').replace(',','.')); if(isNaN(v)){ v = parseFloat(String(s).trim().replace(',','.')); } return isNaN(v)?0:v; };
+/* número no XML usa ponto decimal: tenta direto primeiro */
+var numXml = function(s){ if(s==null||s==='') return 0; var v = parseFloat(String(s).trim()); return isNaN(v)?0:v; };
+/* valores digitados: aceita 1234,56 | 1.234,56 | 1234.56 | R$ 1.234,56 (com ou sem virgula) */
+var parseMoney = function(s){
+  if(s==null) return 0;
+  s = String(s).trim().replace(/^R\$\s?/, '').replace(/\s/g, '');
+  if(!s) return 0;
+  var neg = false;
+  if(s.charAt(0)==='-'){ neg = true; s = s.slice(1); }
+  var v;
+  if(s.indexOf(',')>=0){ v = parseFloat(s.replace(/\./g, '').replace(',', '.')); }
+  else if(/^(\d{1,3})(\.\d{3})+$/.test(s)){ v = parseFloat(s.replace(/\./g, '')); }
+  else { v = parseFloat(s); }
+  if(isNaN(v)) return 0;
+  return neg ? -v : v;
+};
+var fmtMoneyInput = function(s){ var v = parseMoney(s); if(!v) return ''; return v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}); };
+
+function els(root, name){
+  try {
+    if(root.getElementsByTagNameNS){
+      var l = root.getElementsByTagNameNS('*', name);
+      if(l && l.length) return Array.prototype.slice.call(l);
+    }
+  } catch(e){}
+  var out = [];
+  (function walk(n){
+    if(n && n.nodeType===1){
+      var ln = n.localName || n.baseName || n.nodeName;
+      if(ln===name || (n.nodeName||'').split(':').pop()===name) out.push(n);
+      for(var c=n.firstChild;c;c=c.nextSibling) walk(c);
+    }
+  })(root);
+  return out;
+}
+function childText(parent, name){
+  if(!parent) return '';
+  var l = els(parent, name);
+  for(var i=0;i<l.length;i++){ if(l[i].parentNode===parent) return (l[i].textContent||'').trim(); }
+  return l.length ? ((l[0].textContent||'').trim()) : '';
+}
+function fmtDate(iso){
+  if(!iso) return '';
+  var m = String(iso).match(/(\d{4})-(\d{2})-(\d{2})[T ]?(\d{2}:\d{2})?/);
+  if(m) return m[3]+'/'+m[2]+'/'+m[1]+(m[4]?' '+m[4]:'');
+  return iso;
+}
+
+function parseNFeXml(text, fname){
+  var doc = new DOMParser().parseFromString(text, 'application/xml');
+  if(doc.getElementsByTagName('parsererror').length){
+    throw new Error('XML inválido');
+  }
+  var nfes = els(doc, 'NFe');
+  if(!nfes.length) return []; /* ex.: -can.xml (procEvento) */
+  var out = [];
+  nfes.forEach(function(nfe){
+    var ide = els(nfe,'ide')[0], emit = els(nfe,'emit')[0];
+    var xNome = childText(emit,'xNome');
+    var dhEmi = childText(ide,'dhEmi') || childText(ide,'dEmi');
+    var mod = childText(ide,'mod'), nNF = childText(ide,'nNF');
+    var dets = els(nfe,'det');
+    dets.forEach(function(det){
+      var prod = els(det,'prod')[0];
+      if(!prod) return;
+      var xProd = childText(prod,'xProd');
+      var ncm = (childText(prod,'NCM')||'').replace(/\D/g,'');
+      var cfop = childText(prod,'CFOP');
+      var q = numXml(childText(prod,'qCom'));
+      var vu = numXml(childText(prod,'vUnCom'));
+      var desc = numXml(childText(prod,'vDesc'));
+      var vProd = numXml(childText(prod,'vProd'));
+      var liquido = (q && vu) ? (q*vu - desc) : (vProd - desc);
+      var mono = (typeof NCM_MONOFASICOS!=='undefined' && NCM_MONOFASICOS.has(ncm)) ? 'SIM' : 'NAO';
+      out.push({ emissor:xNome, data:fmtDate(dhEmi), modelo:mod, numero:nNF,
+        descricao:xProd, ncm:ncm, cfop:cfop, qtd:q, vunit:vu, desc:desc,
+        liquido:Math.round(liquido*100)/100, mono:mono, arquivo:fname });
+    });
+  });
+  return out;
+}
+
+function handleFileList(files){
+  var list = Array.prototype.slice.call(files);
+  var xmls = list.filter(function(f){ return /\.xml$/i.test(f.name); });
+  var zips = list.filter(function(f){ return /\.zip$/i.test(f.name); });
+  var rars = list.filter(function(f){ return /\.(rar|7z)$/i.test(f.name); });
+  rars.forEach(function(f){ errorLog.push(f.name + ': formato .rar/.7z não é lido pelo navegador. Extraia e selecione a pasta, os XMLs ou um .zip.'); });
+  if(!xmls.length && !zips.length && !list.length) return;
+  var jobs = [];
+  xmls.forEach(function(f){ jobs.push(f.text().then(function(t){ return {name:f.name, text:t}; })); });
+  if(zips.length){
+    if(typeof JSZip==='undefined'){ errorLog.push('JSZip não carregou (sem internet?). O .zip não pôde ser aberto.'); }
+    else {
+      zips.forEach(function(z){
+        jobs.push(JSZip.loadAsync(z).then(function(zip){
+          var inners = [];
+          zip.forEach(function(path, entry){ if(!entry.dir && /\.xml$/i.test(path)) inners.push(entry.async('text').then(function(t){ return {name:z.name+' :: '+path, text:t}; })); });
+          return Promise.all(inners);
+        }));
+      });
+    }
+  }
+  Promise.all(jobs).then(function(results){
+    var flat = [];
+    results.forEach(function(r){ if(Array.isArray(r)) flat = flat.concat(r); else if(r) flat.push(r); });
+    var added = 0;
+    flat.forEach(function(r){
+      try {
+        var its = parseNFeXml(r.text, r.name);
+        if(!its.length){ ignoredCount++; return; }
+        items = items.concat(its); added += its.length; fileCount++;
+      } catch(e){ ignoredCount++; errorLog.push(r.name + ': ' + e.message); }
+    });
+    render();
+  }).catch(function(e){ errorLog.push('Falha ao ler arquivos: ' + e.message); render(); });
+}
+
+function filtered(){
+  var q = ($('fSearch').value||'').toLowerCase();
+  var m = $('fMod').value, s = $('fMono').value;
+  return items.filter(function(it){
+    if(m && it.modelo!==m) return false;
+    if(s && it.mono!==s) return false;
+    if(q){
+      var hay = (it.emissor+' '+it.descricao+' '+it.ncm+' '+it.numero+' '+(it.arquivo||'')).toLowerCase();
+      if(hay.indexOf(q)<0) return false;
+    }
+    return true;
+  });
+}
+
+function totalsOf(rows){
+  var s=0,n=0;
+  rows.forEach(function(it){ if(it.mono==='SIM') s+=it.liquido; else n+=it.liquido; });
+  return { sim:s, nao:n, geral:s+n };
+}
+
+function render(){
+  var rows = filtered();
+  var tb = $('tbody'); tb.innerHTML = '';
+  if(!rows.length){
+    tb.innerHTML = '<tr><td colspan="12" class="center">Nenhum item para exibir.</td></tr>';
+    $('tfoot').style.display='none';
+  } else {
+    var frag = document.createDocumentFragment();
+    rows.forEach(function(it){
+      var tr = document.createElement('tr');
+      var tds = [it.emissor, it.data, it.modelo, it.numero, it.descricao, it.ncm, it.cfop,
+        it.qtd, brl(it.vunit), brl(it.desc), brl(it.liquido), null];
+      tds.forEach(function(v,i){
+        var td = document.createElement('td');
+        if(i===11){ var b=document.createElement('span'); b.className='badge '+(it.mono==='SIM'?'sim':'nao'); b.textContent=it.mono; td.className='center'; td.appendChild(b); }
+        else { td.textContent=v; if(i>=7) td.className='num'; }
+        tr.appendChild(td);
+      });
+      frag.appendChild(tr);
+    });
+    tb.appendChild(frag);
+  }
+  var t = totalsOf(rows);
+  var sem = parseMoney($('srvSem').value), com = parseMoney($('srvCom').value);
+  $('tSim').textContent = brl(t.sim);
+  $('tNao').textContent = brl(t.nao);
+  $('tGeral').textContent = brl(t.geral);
+  $('tTotal').textContent = brl(t.geral + sem + com);
+  var ft = $('tfoot');
+  if(rows.length){
+    ft.style.display='';
+    ft.innerHTML = '<tr><td colspan="10" class="num">Total Monofásico (SIM):</td><td class="num">'+brl(t.sim)+'</td><td class="center">SIM</td></tr>'+
+      '<tr><td colspan="10" class="num">Total Não Monofásico (NÃO):</td><td class="num">'+brl(t.nao)+'</td><td class="center">NÃO</td></tr>'+
+      '<tr><td colspan="10" class="num">Total Geral (SIM + NÃO):</td><td class="num">'+brl(t.geral)+'</td><td></td></tr>';
+  } else ft.style.display='none';
+  $('status').textContent = 'Arquivos XML lidos: ' + fileCount + ' | Itens: ' + items.length + ' | Ignorados (cancelamentos/inválidos): ' + ignoredCount;
+  $('status2').textContent = 'Exibindo ' + rows.length + ' de ' + items.length + ' itens. Os totais acima consideram os ' + rows.length + ' itens filtrados.';
+  $('errbox').textContent = errorLog.slice(-8).join('\n');
+}
+
+function exportRows(){
+  var rows = filtered();
+  var head = ['Nome Emissor','Data Emissao','Modelo','Numero','Descricao','NCM','CFOP','Quantidade','Valor Unitario','Desconto','Valor Liquido','PIS/Cofins Monofasico'];
+  var body = rows.map(function(it){ return [it.emissor,it.data,it.modelo,it.numero,it.descricao,it.ncm,it.cfop,it.qtd,it.vunit,it.desc,it.liquido,it.mono]; });
+  var t = totalsOf(rows);
+  var sem = parseMoney($('srvSem').value), com = parseMoney($('srvCom').value);
+  body.push([]);
+  body.push(['','','','','','','','','','Total Monofasico (SIM):', Math.round(t.sim*100)/100, 'SIM']);
+  body.push(['','','','','','','','','','Total Nao Monofasico (NAO):', Math.round(t.nao*100)/100, 'NAO']);
+  body.push(['','','','','','','','','','Total Geral (SIM + NAO):', Math.round(t.geral*100)/100, '']);
+  body.push(['','','','','','','','','','Servico SEM Retencao:', sem, '']);
+  body.push(['','','','','','','','','','Servico COM Retencao:', com, '']);
+  body.push(['','','','','','','','','','TOTAL', Math.round((t.geral+sem+com)*100)/100, '']);
+  return { head:head, body:body };
+}
+
+$('btnExcel').onclick = function(){
+  var d = exportRows();
+  if(typeof XLSX==='undefined'){ alert('Biblioteca de Excel não carregou (sem internet?). Use o CSV.'); return; }
+  var ws = XLSX.utils.aoa_to_sheet([d.head].concat(d.body));
+  ws['!cols'] = [{wch:28},{wch:17},{wch:8},{wch:10},{wch:38},{wch:12},{wch:8},{wch:11},{wch:14},{wch:12},{wch:14},{wch:18}];
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Itens');
+  XLSX.writeFile(wb, 'PIS_COFINS_Monofasico.xlsx');
+};
+$('btnCsv').onclick = function(){
+  var d = exportRows();
+  var q = function(v){ v = (v==null?'':String(v)); return /[;"\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; };
+  var lines = [d.head.map(q).join(';')];
+  d.body.forEach(function(r){ lines.push(r.map(function(v){ return q(typeof v==='number' ? String(v).replace('.',',') : v); }).join(';')); });
+  var blob = new Blob(["﻿"+lines.join('\r\n')], {type:'text/csv;charset=utf-8'});
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'PIS_COFINS_Monofasico.csv'; a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000);
+};
+$('btnPrint').onclick = function(){ window.print(); };
+$('btnClear').onclick = function(){ items=[]; fileCount=0; ignoredCount=0; errorLog=[]; render(); };
+$('btnNoFilter').onclick = function(){ $('fSearch').value=''; $('fMod').value=''; $('fMono').value=''; render(); };
+['fSearch','fMod','fMono'].forEach(function(id){ $(id).addEventListener('input', render); });
+['srvSem','srvCom'].forEach(function(id){
+  $(id).addEventListener('input', render);
+  $(id).addEventListener('blur', function(){ this.value = fmtMoneyInput(this.value); render(); });
+});
+
+$('btnFiles').onclick = function(){ $('inFiles').click(); };
+$('btnFolder').onclick = function(){ $('inFolder').click(); };
+$('btnZip').onclick = function(){ $('inZip').click(); };
+$('inFiles').addEventListener('change', function(e){ handleFileList(e.target.files); e.target.value=''; });
+$('inFolder').addEventListener('change', function(e){ handleFileList(e.target.files); e.target.value=''; });
+$('inZip').addEventListener('change', function(e){ handleFileList(e.target.files); e.target.value=''; });
+
+var drop = $('drop');
+['dragenter','dragover'].forEach(function(ev){ drop.addEventListener(ev, function(e){ e.preventDefault(); drop.classList.add('over'); }); });
+['dragleave','drop'].forEach(function(ev){ drop.addEventListener(ev, function(e){ e.preventDefault(); drop.classList.remove('over'); }); });
+drop.addEventListener('drop', function(e){ if(e.dataTransfer && e.dataTransfer.files) handleFileList(e.dataTransfer.files); });
+render();
+</script>
+</body>
+</html>
